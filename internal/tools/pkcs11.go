@@ -85,7 +85,7 @@ func (cm *CardManager) GetSlots(withToken bool) ([]uint, error) {
 	}
 
 	if len(slots) == 0 {
-		return []uint{}, fmt.Errorf("No card present")
+		return []uint{}, fmt.Errorf("no card present")
 	}
 
 	return slots, nil
@@ -105,7 +105,7 @@ func (cm *CardManager) GetStatus() (CardStatus, error) {
 	status.ReaderConnected = len(allSlots) > 0
 
 	if len(allSlots) == 0 {
-		return status, fmt.Errorf("No slots present")
+		return status, fmt.Errorf("no slots present")
 	}
 
 	tokenSlots, err := cm.GetSlots(true)
@@ -150,21 +150,58 @@ func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error
 	}
 
 	if len(attrs) == 0 || len(attrs[0].Value) == 0 {
-		return nil, nil, fmt.Errorf("Certificate not found on card")
+		return nil, nil, fmt.Errorf("certificate not found on card")
 	}
 
 	derBytes := attrs[0].Value
 
 	cert, err := x509.ParseCertificate(derBytes)
 	if err != nil {
-		return derBytes, nil, fmt.Errorf("Failed to parse certificate: %w", err)
+		return derBytes, nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
 	return derBytes, cert, nil
 }
 
-func (cm *CardManager) Sign(pin string, hash []byte, algorithm string) ([]byte, error) {}
+// Sign Prepare the hash for signing -> Find slot with card -> Open session -> Login -> Sign -> Logout -> Close session -> Return signed hash
+func (cm *CardManager) Sign(pin string, hash []byte, algorithm string) ([]byte, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
-func digestInfoWrap(hash []byte, algorithm string) ([]byte, error) {}
+	if cm.ctx == nil {
+		return nil, fmt.Errorf("card manager not initialized")
+	}
+
+	if pin == "" {
+		return nil, fmt.Errorf("PIN cannot be empty")
+	}
+
+	if len(hash) == 0 {
+		return nil, fmt.Errorf("hash cannot be empty")
+	}
+}
+
+// digestInfoWrap Raw hash cannot be used for signing so we need to prepare it as ASN.1 DigestInfo structure
+func digestInfoWrap(hash []byte, algorithm string) ([]byte, error) {
+	prefix, ok := digestInfoPrefixes[algorithm]
+	if !ok {
+		return nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
+	}
+
+	expectedLen, ok := hashLengths[algorithm]
+	if !ok {
+		return nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
+	}
+
+	if len(hash) != expectedLen {
+		return nil, fmt.Errorf("invalid hash length for %s: got %d, expected %d",
+			algorithm, len(hash), expectedLen)
+	}
+
+	result := make([]byte, len(prefix)+len(hash))
+	copy(result, prefix)
+	copy(result[len(prefix):], hash)
+	return result, nil
+}
 
 func mapPKCS11Error(err error) (httpStatus int, code string, message string) {}
