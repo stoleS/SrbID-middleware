@@ -50,6 +50,7 @@ func InitializeCardManager(modulePath string) (*CardManager, error) {
 	}
 
 	if err := ctx.Initialize(); err != nil {
+		ctx.Destroy()
 		return nil, fmt.Errorf("PKCS#11 initialize failed: %w", err)
 	}
 
@@ -64,6 +65,7 @@ func (cm *CardManager) Close() error {
 	defer cm.mu.Unlock()
 
 	if cm.ctx != nil {
+		// Release the memory and unload the srb-id-pkcs11
 		err := cm.ctx.Finalize()
 		cm.ctx.Destroy()
 		return err
