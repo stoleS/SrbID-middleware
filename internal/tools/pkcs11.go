@@ -138,6 +138,7 @@ func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error
 
 	session, err := cm.ctx.OpenSession(slotID[0], pkcs11.CKF_SERIAL_SESSION)
 	if err != nil {
+		cm.ctx.Destroy()
 		return nil, nil, fmt.Errorf("OpenSession failed: %w", err)
 	}
 	defer cm.ctx.CloseSession(session)
@@ -179,6 +180,41 @@ func (cm *CardManager) Sign(pin string, hash []byte, algorithm string) ([]byte, 
 	if len(hash) == 0 {
 		return nil, fmt.Errorf("hash cannot be empty")
 	}
+
+	digestInfo, err := digestInfoWrap(hash, algorithm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wrap digest: %w", err)
+	}
+
+	slotID, err := cm.GetSlots(true)
+	if err != nil {
+		return nil, fmt.Errorf("GetSlotList failed: %w", err)
+	}
+
+	session, err := cm.ctx.OpenSession(slotID[0], pkcs11.CKF_SERIAL_SESSION)
+	if err != nil {
+		cm.ctx.Destroy()
+		return nil, fmt.Errorf("OpenSession failed: %w", err)
+	}
+	defer cm.ctx.CloseSession(session)
+
+	if err := cm.ctx.Login(session, pkcs11.CKU_USER, pin); err != nil {
+		cm.ctx.Destroy()
+		return nil, fmt.Errorf("login failed: %w", err)
+	}
+	defer cm.ctx.Logout(session)
+
+	mechanism := []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
+	if err := cm.ctx.SignInit(session, mechanism, pkcs11.ObjectHandle(HandleSigningKey)); err != nil {
+		return nil, fmt.Errorf("failed to initialize signing: %w", err)
+	}
+
+	signature, err := cm.ctx.Sign(session, digestInfo)
+	if err != nil {
+		return nil, fmt.Errorf("signing failed: %w", err)
+	}
+
+	return signature, nil
 }
 
 // digestInfoWrap Raw hash cannot be used for signing so we need to prepare it as ASN.1 DigestInfo structure
