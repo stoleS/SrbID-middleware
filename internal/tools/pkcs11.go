@@ -104,6 +104,10 @@ func (cm *CardManager) GetStatus() (CardStatus, error) {
 	}
 	status.ReaderConnected = len(allSlots) > 0
 
+	if len(allSlots) == 0 {
+		return status, fmt.Errorf("No slots present")
+	}
+
 	tokenSlots, err := cm.GetSlots(true)
 	if err != nil {
 		return status, nil
@@ -121,7 +125,43 @@ func (cm *CardManager) GetStatus() (CardStatus, error) {
 
 }
 
-func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error) {}
+// GetSigningCertificate Get the first slot with card inserted -> Open card session -> Find the signing cert by its object handle -> Parse it -> Close session
+func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	slotID, err := cm.GetSlots(true)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	session, err := cm.ctx.OpenSession(slotID[0], pkcs11.CKF_SERIAL_SESSION)
+	if err != nil {
+		return nil, nil, fmt.Errorf("OpenSession failed: %w", err)
+	}
+	defer cm.ctx.CloseSession(session)
+
+	attrs, err := cm.ctx.GetAttributeValue(session, pkcs11.ObjectHandle(HandleSigningCert), []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_VALUE, nil),
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAttributeValue failed: %w", err)
+	}
+
+	if len(attrs) == 0 || len(attrs[0].Value) == 0 {
+		return nil, nil, fmt.Errorf("Certificate not found on card")
+	}
+
+	derBytes := attrs[0].Value
+
+	cert, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		return derBytes, nil, fmt.Errorf("Failed to parse certificate: %w", err)
+	}
+
+	return derBytes, cert, nil
+}
 
 func (cm *CardManager) Sign(pin string, hash []byte, algorithm string) ([]byte, error) {}
 
