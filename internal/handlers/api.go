@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"net/http"
+
+	"github.com/stoleS/SrbID-middleware/internal/handlers/certificate"
 )
 
-func noop(w http.ResponseWriter, r *http.Request) {}
-
 func Handler(r *http.ServeMux) {
-	r.HandleFunc("GET /status", noop)
-	r.HandleFunc("GET /certificate", noop)
-	r.HandleFunc("POST /sign", noop)
+	r.HandleFunc("GET /status", certificate.GetCertificateStatus)
+	r.HandleFunc("GET /certificate", certificate.GetCertificate)
+	r.HandleFunc("POST /sign", certificate.WithCertificateSign)
 }

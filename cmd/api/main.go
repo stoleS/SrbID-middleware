@@ -1,26 +1,44 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/stoleS/SrbID-middleware/internal/handlers"
+	"github.com/stoleS/SrbID-middleware/internal/middleware"
+	"github.com/stoleS/SrbID-middleware/internal/tools"
 )
 
 func main() {
+	cfg, err := tools.LoadConfig()
+	if err != nil {
+		slog.Error("configuration error", "error", err)
+		os.Exit(1)
+	}
+
 	router := http.NewServeMux()
 	handlers.Handler(router)
 
+	stack := middleware.CreateStack(middleware.Logging)
+
 	server := http.Server{
-		Addr:    ":9889",
-		Handler: router,
+		Addr:         cfg.Addr(),
+		Handler:      stack(router),
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	err := server.ListenAndServe()
+	logger := slog.Default()
 
-	log.Printf("Listening on port 9889")
+	logger.Info("Server starting", slog.String("addr", server.Addr), slog.String("origins", fmt.Sprintf("%v", cfg.AllowedOrigins)))
 
-	if err != nil {
-		log.Fatal(err)
+	if err := server.ListenAndServe(); err != nil {
+		logger.Error("There was a problem starting the server", "error", err)
+		os.Exit(1)
 	}
+
+	logger.Info("Server started successfully")
 }
