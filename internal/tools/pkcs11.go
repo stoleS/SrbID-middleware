@@ -2,6 +2,7 @@ package tools
 
 import (
 	"crypto/x509"
+	"fmt"
 	"sync"
 
 	"github.com/miekg/pkcs11"
@@ -43,10 +44,30 @@ type CardManager struct {
 }
 
 func InitializeCardManager(modulePath string) (*CardManager, error) {
-	return &CardManager{modulePath: modulePath}, nil
+	ctx := pkcs11.New(modulePath)
+	if ctx == nil {
+		return nil, fmt.Errorf("failed to load PKCS#11 module: %s", modulePath)
+	}
+
+	if err := ctx.Initialize(); err != nil {
+		return nil, fmt.Errorf("PKCS#11 initialize failed: %w", err)
+	}
+
+	return &CardManager{
+		modulePath: modulePath,
+		ctx:        ctx,
+	}, nil
 }
 
 func (cm *CardManager) Close() error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if cm.ctx != nil {
+		err := cm.ctx.Finalize()
+		cm.ctx.Destroy()
+		return err
+	}
 	return nil
 }
 
