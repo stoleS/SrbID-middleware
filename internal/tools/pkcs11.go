@@ -44,6 +44,7 @@ type CardManager struct {
 }
 
 func InitializeCardManager(modulePath string) (*CardManager, error) {
+	// Load the srb-id-pkcs11.dylib
 	ctx := pkcs11.New(modulePath)
 	if ctx == nil {
 		return nil, fmt.Errorf("failed to load PKCS#11 module: %s", modulePath)
@@ -65,7 +66,7 @@ func (cm *CardManager) Close() error {
 	defer cm.mu.Unlock()
 
 	if cm.ctx != nil {
-		// Release the memory and unload the srb-id-pkcs11
+		// Release the memory and unload the srb-id-pkcs11.dylib
 		err := cm.ctx.Finalize()
 		cm.ctx.Destroy()
 		return err
@@ -73,9 +74,52 @@ func (cm *CardManager) Close() error {
 	return nil
 }
 
-func (cm *CardManager) FindSlot() (uint, error) {}
+// GetSlots true -> Only slots WITH a token inserted, false -> ALL slots
+func (cm *CardManager) GetSlots(withToken bool) ([]uint, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
-func (cm *CardManager) GetStatus() (CardStatus, error) {}
+	slots, err := cm.ctx.GetSlotList(withToken)
+	if err != nil {
+		return []uint{}, err
+	}
+
+	if len(slots) == 0 {
+		return []uint{}, fmt.Errorf("No card present")
+	}
+
+	return slots, nil
+}
+
+// GetStatus Go through the available slots and check if any are available and have the card inserted
+func (cm *CardManager) GetStatus() (CardStatus, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	status := CardStatus{}
+
+	allSlots, err := cm.GetSlots(false)
+	if err != nil {
+		return status, fmt.Errorf("GetSlotList failed: %w", err)
+	}
+	status.ReaderConnected = len(allSlots) > 0
+
+	tokenSlots, err := cm.GetSlots(true)
+	if err != nil {
+		return status, nil
+	}
+	status.CardPresent = len(tokenSlots) > 0
+
+	if status.CardPresent {
+		tokenInfo, err := cm.ctx.GetTokenInfo(tokenSlots[0])
+		if err == nil {
+			status.TokenLabel = tokenInfo.Label
+		}
+	}
+
+	return status, nil
+
+}
 
 func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error) {}
 
