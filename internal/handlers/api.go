@@ -9,5 +9,5 @@ import (
 func Handler(r *http.ServeMux) {
 	r.HandleFunc("GET /status", certificate.GetCertificateStatus)
 	r.HandleFunc("GET /certificate", certificate.GetCertificate)
-	r.HandleFunc("POST /sign", certificate.WithCertificateSign)
+	r.HandleFunc("POST /sign", certificate.CertificateSign)
 }

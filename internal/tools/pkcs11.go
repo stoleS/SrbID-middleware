@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"crypto/x509"
 	"sync"
 
 	"github.com/miekg/pkcs11"
@@ -40,3 +41,23 @@ type CardManager struct {
 	ctx        *pkcs11.Ctx
 	mu         sync.Mutex
 }
+
+func InitializeCardManager(modulePath string) (*CardManager, error) {
+	return &CardManager{modulePath: modulePath}, nil
+}
+
+func (cm *CardManager) Close() error {
+	return nil
+}
+
+func (cm *CardManager) FindSlot() (uint, error) {}
+
+func (cm *CardManager) GetStatus() (CardStatus, error) {}
+
+func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error) {}
+
+func (cm *CardManager) Sign(pin string, hash []byte, algorithm string) ([]byte, error) {}
+
+func digestInfoWrap(hash []byte, algorithm string) ([]byte, error) {}
+
+func mapPKCS11Error(err error) (httpStatus int, code string, message string) {}
