@@ -2,6 +2,7 @@ package tools
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -240,4 +241,32 @@ func digestInfoWrap(hash []byte, algorithm string) ([]byte, error) {
 	return result, nil
 }
 
-func mapPKCS11Error(err error) (httpStatus int, code string, message string) {}
+// MapPKCS11Error If something in pkcs#11 fails that is not handled before by our error checking, provide it to the user in a nice way
+func MapPKCS11Error(err error) (httpStatus int, code string, message string) {
+	if err == nil {
+		return 200, "", ""
+	}
+
+	var pkcsErr pkcs11.Error
+	ok := errors.As(err, &pkcsErr)
+	if !ok {
+		return 500, "internal_error", err.Error()
+	}
+
+	switch pkcsErr {
+	case pkcs11.CKR_PIN_INCORRECT:
+		return 401, "pin_incorrect", "Incorrect PIN"
+	case pkcs11.CKR_PIN_LOCKED:
+		return 403, "pin_locked", "PIN is locked (too many failed attempts)"
+	case pkcs11.CKR_PIN_LEN_RANGE:
+		return 400, "pin_invalid", "PIN must be 4-8 characters"
+	case pkcs11.CKR_TOKEN_NOT_PRESENT:
+		return 503, "card_not_present", "Smart card not inserted"
+	case pkcs11.CKR_DEVICE_REMOVED:
+		return 503, "card_removed", "Smart card was removed"
+	case pkcs11.CKR_SLOT_ID_INVALID:
+		return 503, "no_reader", "No card reader found"
+	default:
+		return 500, "pkcs11_error", fmt.Sprintf("PKCS#11 error: %v", pkcsErr)
+	}
+}
