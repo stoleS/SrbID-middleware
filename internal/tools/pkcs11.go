@@ -62,6 +62,14 @@ func InitializeCardManager(modulePath string) (*CardManager, error) {
 	}, nil
 }
 
+func (cm *CardManager) openSession(slotId uint) (pkcs11.SessionHandle, error) {
+	session, err := cm.ctx.OpenSession(slotId, pkcs11.CKF_SERIAL_SESSION)
+	if err != nil {
+		return 0, fmt.Errorf("OpenSession failed: %w", err)
+	}
+	return session, nil
+}
+
 func (cm *CardManager) Close() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -76,10 +84,7 @@ func (cm *CardManager) Close() error {
 }
 
 // GetSlots true -> Only slots WITH a token inserted, false -> ALL slots
-func (cm *CardManager) GetSlots(withToken bool) ([]uint, error) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
+func (cm *CardManager) getSlots(withToken bool) ([]uint, error) {
 	slots, err := cm.ctx.GetSlotList(withToken)
 	if err != nil {
 		return []uint{}, err
@@ -99,17 +104,13 @@ func (cm *CardManager) GetStatus() (CardStatus, error) {
 
 	status := CardStatus{}
 
-	allSlots, err := cm.GetSlots(false)
+	allSlots, err := cm.getSlots(false)
 	if err != nil {
 		return status, fmt.Errorf("GetSlotList failed: %w", err)
 	}
 	status.ReaderConnected = len(allSlots) > 0
 
-	if len(allSlots) == 0 {
-		return status, fmt.Errorf("no slots present")
-	}
-
-	tokenSlots, err := cm.GetSlots(true)
+	tokenSlots, err := cm.getSlots(true)
 	if err != nil {
 		return status, nil
 	}
@@ -123,7 +124,6 @@ func (cm *CardManager) GetStatus() (CardStatus, error) {
 	}
 
 	return status, nil
-
 }
 
 // GetSigningCertificate Get the first slot with card inserted -> Open card session -> Find the signing cert by its object handle -> Parse it -> Close session
@@ -131,16 +131,15 @@ func (cm *CardManager) GetSigningCertificate() ([]byte, *x509.Certificate, error
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	slotID, err := cm.GetSlots(true)
+	slotID, err := cm.getSlots(true)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	session, err := cm.ctx.OpenSession(slotID[0], pkcs11.CKF_SERIAL_SESSION)
+	session, err := cm.openSession(slotID[0])
 	if err != nil {
-		cm.ctx.Destroy()
-		return nil, nil, fmt.Errorf("OpenSession failed: %w", err)
+		return nil, nil, err
 	}
 	defer cm.ctx.CloseSession(session)
 
@@ -187,20 +186,18 @@ func (cm *CardManager) Sign(pin string, hash []byte, algorithm string) ([]byte, 
 		return nil, fmt.Errorf("failed to wrap digest: %w", err)
 	}
 
-	slotID, err := cm.GetSlots(true)
+	slotID, err := cm.getSlots(true)
 	if err != nil {
 		return nil, fmt.Errorf("GetSlotList failed: %w", err)
 	}
 
-	session, err := cm.ctx.OpenSession(slotID[0], pkcs11.CKF_SERIAL_SESSION)
+	session, err := cm.openSession(slotID[0])
 	if err != nil {
-		cm.ctx.Destroy()
-		return nil, fmt.Errorf("OpenSession failed: %w", err)
+		return nil, err
 	}
 	defer cm.ctx.CloseSession(session)
 
 	if err := cm.ctx.Login(session, pkcs11.CKU_USER, pin); err != nil {
-		cm.ctx.Destroy()
 		return nil, fmt.Errorf("login failed: %w", err)
 	}
 	defer cm.ctx.Logout(session)

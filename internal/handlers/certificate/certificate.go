@@ -14,7 +14,6 @@ type ErrorResponse struct {
 }
 
 type StatusResponse struct {
-	Status          string `json:"status"`
 	ReaderConnected bool   `json:"reader_connected"`
 	CardPresent     bool   `json:"card_present"`
 	TokenLabel      string `json:"token_label"`
@@ -52,16 +51,7 @@ func GetCertificateStatus(cm *tools.CardManager) http.HandlerFunc {
 			return
 		}
 
-		status := "no_reader"
-		if cardStatus.ReaderConnected {
-			status = "no_card"
-		}
-		if cardStatus.CardPresent {
-			status = "card_present"
-		}
-
 		api.RespondWithJSON(w, http.StatusOK, StatusResponse{
-			Status:          status,
 			ReaderConnected: cardStatus.ReaderConnected,
 			CardPresent:     cardStatus.CardPresent,
 			TokenLabel:      cardStatus.TokenLabel,

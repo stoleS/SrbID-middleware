@@ -38,7 +38,7 @@ func LoadConfig() (Config, error) {
 
 	cfg.PKCS11Module = os.Getenv("SIGNER_PKCS11_MODULE")
 	if cfg.PKCS11Module == "" {
-		return cfg, fmt.Errorf("SIGNER_PKCS11_MODULE is required")
+		return cfg, fmt.Errorf("SIGNER_PKCS11_MODULE env variable is missing")
 	}
 
 	if _, err := os.Stat(cfg.PKCS11Module); err != nil {

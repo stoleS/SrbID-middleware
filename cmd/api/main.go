@@ -14,7 +14,7 @@ import (
 func main() {
 	cfg, err := tools.LoadConfig()
 	if err != nil {
-		slog.Error("configuration error", "error", err)
+		slog.Error("configuration_error", "error", err)
 		os.Exit(1)
 	}
 
