@@ -18,10 +18,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := http.NewServeMux()
-	handlers.Handler(router)
+	slog.Info("loading PKCS#11 module", "path", cfg.PKCS11Module)
+	cm, err := tools.InitializeCardManager(cfg.PKCS11Module)
+	if err != nil {
+		slog.Error("failed to initialize card manager", "error", err)
+		os.Exit(1)
+	}
+	defer cm.Close()
 
-	stack := middleware.CreateStack(middleware.Logging)
+	router := http.NewServeMux()
+	handlers.Handler(router, cm)
+
+	stack := middleware.CreateStack(middleware.Logging, middleware.Cors(cfg.AllowedOrigins), middleware.Panic)
 
 	server := http.Server{
 		Addr:         cfg.Addr(),

@@ -1,6 +1,10 @@
 package certificate
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/stoleS/SrbID-middleware/internal/tools"
+)
 
 type ErrorResponse struct {
 	Error   string `json:"error"`
@@ -39,17 +43,23 @@ type SignResponse struct {
 	Signature string `json:"signature"`
 }
 
-func GetCertificateStatus(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+func GetCertificateStatus(cm *tools.CardManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
-func GetCertificate(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+func GetCertificate(cm *tools.CardManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
-func CertificateSign(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+func CertificateSign(cm *tools.CardManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	}
 }

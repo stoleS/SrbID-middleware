@@ -5,6 +5,7 @@ import (
 
 	"github.com/stoleS/SrbID-middleware/api"
 	"github.com/stoleS/SrbID-middleware/internal/handlers/certificate"
+	"github.com/stoleS/SrbID-middleware/internal/tools"
 )
 
 type HealthResponse struct {
@@ -17,10 +18,10 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func Handler(r *http.ServeMux) {
+func Handler(r *http.ServeMux, cm *tools.CardManager) {
 	r.HandleFunc("/health", HealthCheck)
 
-	r.HandleFunc("GET /v1/status", certificate.GetCertificateStatus)
-	r.HandleFunc("GET /v1/certificate", certificate.GetCertificate)
-	r.HandleFunc("POST /v1/sign", certificate.CertificateSign)
+	r.HandleFunc("GET /v1/status", certificate.GetCertificateStatus(cm))
+	r.HandleFunc("GET /v1/certificate", certificate.GetCertificate(cm))
+	r.HandleFunc("POST /v1/sign", certificate.CertificateSign(cm))
 }
