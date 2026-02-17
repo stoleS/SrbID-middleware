@@ -24,8 +24,8 @@ var digestInfoPrefixes = map[string][]byte{
 	"SHA-512": {0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40},
 }
 
-// Expected hash lengths per algorithm
-var hashLengths = map[string]int{
+// HashLengths Expected hash lengths per algorithm
+var HashLengths = map[string]int{
 	"SHA-1":   20,
 	"SHA-256": 32,
 	"SHA-384": 48,
@@ -222,7 +222,7 @@ func digestInfoWrap(hash []byte, algorithm string) ([]byte, error) {
 		return nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
 	}
 
-	expectedLen, ok := hashLengths[algorithm]
+	expectedLen, ok := HashLengths[algorithm]
 	if !ok {
 		return nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
 	}
