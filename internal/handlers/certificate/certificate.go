@@ -1,6 +1,8 @@
 package certificate
 
 import (
+	"encoding/base64"
+	"fmt"
 	"net/http"
 
 	"github.com/stoleS/SrbID-middleware/api"
@@ -61,8 +63,26 @@ func GetCertificateStatus(cm *tools.CardManager) http.HandlerFunc {
 
 func GetCertificate(cm *tools.CardManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
+		derBytes, cert, err := cm.GetSigningCertificate()
+		if err != nil {
+			httpStatus, code, message := tools.MapPKCS11Error(err)
+			api.RespondWithError(w, httpStatus, code, message)
+			return
+		}
+
+		resp := CertificateResponse{
+			Certificate: base64.StdEncoding.EncodeToString(derBytes),
+		}
+
+		if cert != nil {
+			resp.Subject = cert.Subject.String()
+			resp.Issuer = cert.Issuer.String()
+			resp.ValidFrom = cert.NotBefore.UTC().Format("2006-01-02T15:04:05Z")
+			resp.ValidTo = cert.NotAfter.UTC().Format("2006-01-02T15:04:05Z")
+			resp.Serial = fmt.Sprintf("%X", cert.SerialNumber)
+		}
+
+		api.RespondWithJSON(w, http.StatusOK, resp)
 	}
 }
 
