@@ -3,6 +3,7 @@ package certificate
 import (
 	"net/http"
 
+	"github.com/stoleS/SrbID-middleware/api"
 	"github.com/stoleS/SrbID-middleware/internal/tools"
 )
 
@@ -45,8 +46,26 @@ type SignResponse struct {
 
 func GetCertificateStatus(cm *tools.CardManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
+		cardStatus, err := cm.GetStatus()
+		if err != nil {
+			api.RespondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		status := "no_reader"
+		if cardStatus.ReaderConnected {
+			status = "no_card"
+		}
+		if cardStatus.CardPresent {
+			status = "card_present"
+		}
+
+		api.RespondWithJSON(w, http.StatusOK, StatusResponse{
+			Status:          status,
+			ReaderConnected: cardStatus.ReaderConnected,
+			CardPresent:     cardStatus.CardPresent,
+			TokenLabel:      cardStatus.TokenLabel,
+		})
 	}
 }
 
